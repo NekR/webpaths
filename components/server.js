@@ -1,6 +1,6 @@
 const http = require('http'),
   EventEmitter = require('events').EventEmitter,
-  web = require('web'),
+  web = require('../'),
 
   DEFAULT_CONFIG = {
     port: 80,
@@ -14,6 +14,8 @@ var WebServer = module.exports = function WebServer(config) {
   EventEmitter.call(this);
 
   this.config = {};
+  // should be removed and used only internally to providing hacks
+  this._server = httpServer;
 
   Object.keys(DEFAULT_CONFIG).forEach(function(key) {
     self.config[key] = config[key] || DEFAULT_CONFIG[key];
@@ -123,5 +125,13 @@ WebServer.prototype = {
 
   }
 };
+
+Object.defineProperties(WebServer.prototype, {
+  'connections': {
+    get: function() {
+      return this._server.connections;
+    }
+  }
+});
 
 WebServer.prototype.__proto__ = EventEmitter.prototype;
