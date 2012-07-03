@@ -1,5 +1,10 @@
 const EventEmitter = require('events').EventEmitter,
-  urls = require('url');
+  urls = require('url'),
+  COOKIE_PARAMS = {
+    domain: 1,
+    path: 1,
+    expires: 1
+  };
 
 
 var WebPath = module.exports = function WebPath(req, res, options) {
@@ -32,7 +37,8 @@ WebPath.prototype = Object.defineProperties({
       value = encodeURIComponent(value || '');
 
       var exp,
-        cookie = [name + '=' + value];
+        cookie = [name + '=' + value],
+        httpOnly;
 
       if (typeof exp == "number" && exp) {
         var d = new Date();
@@ -44,9 +50,19 @@ WebPath.prototype = Object.defineProperties({
         props.expires = exp.toUTCString();
       }
 
-      Object.keys(props, function(key) {
-        cookie.push(key + '=' + props[key]);
+      Object.keys(props).forEach(function(key) {
+
+        if (key.toLowerCase() === 'httponly'
+          && props[key]) {
+          httpOnly = true;
+          return;
+        }
+
+        COOKIE_PARAMS[key] && cookie.push(key + '=' + props[key]);
+
       });
+
+      httpOnly && cookie.push('HttpOnly');
 
       this.sendCookie.push(cookie.join('; '));
 
@@ -84,7 +100,7 @@ WebPath.prototype = Object.defineProperties({
           this.response.setHeader('Set-Cookie', this.sendCookie);
         }
 
-        this.response.setHeader('Content-Type', this.contentType);
+        this.response.setHeader('Content-Type', this.contentType + '; charset="utf-8"');
 
         this.response.write(this.buffer.join(''));
       } else {
