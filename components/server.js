@@ -32,7 +32,7 @@ var WebServer = module.exports = function WebServer(config) {
   httpServer.on('request', function(req, res) {
     var path = new web.Path(req, res, {}),
       data = [],
-      reqHost = req.headers.host.split(':'),
+      reqHost = (req.headers.host || '').split(':'),
       virtualHost,
       contentType = req.headers['content-type'];
 
