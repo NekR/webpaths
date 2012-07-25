@@ -1,5 +1,15 @@
 {
   "name": "webpaths",
   "version": "0.0.1",
-  "main": "index.js"
+  "main": "index.js",
+  "description": "An alternative Web server for Node.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/NekR/webpaths.git"
+  },
+  "author": "Arthur Stolyar",
+  "license": "BSD"
 }

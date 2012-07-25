@@ -11,8 +11,6 @@ var WebServer = module.exports = function WebServer(config) {
   const self = this,
     httpServer = this.httpServer =  new http.Server;
 
-  httpServer.httpAllowHalfOpen = true;
-
   EventEmitter.call(this);
 
   this.config = {};
