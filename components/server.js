@@ -7,9 +7,13 @@ const http = require('http'),
     host: 'localhost'
   };
 
+var count = 0;
+
 var WebServer = module.exports = function WebServer(config) {
   const self = this,
-    httpServer = this.httpServer =  new http.Server;
+    httpServer = this.httpServer = new http.Server;
+
+  httpServer.allowHalfOpen = !(config.allowHalfOpen === false);
 
   EventEmitter.call(this);
 
@@ -72,6 +76,7 @@ var WebServer = module.exports = function WebServer(config) {
       virtualHost.emit('path', path);
 
     });
+
 
   });
 
