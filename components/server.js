@@ -1,16 +1,62 @@
-const http = require('http'),
+"use strict";
+
+var http = require('http'),
+  paths = require('path'),
   EventEmitter = require('events').EventEmitter,
   web = require('../'),
+  count = 0;
 
-  DEFAULT_CONFIG = {
+var DEFAULT_CONFIG = {
     port: 80,
     host: 'localhost'
-  };
+  },
+  R_SPLIT_HEADER = /;(\s+)?/;
 
-var count = 0;
+var requestHandler = function(req, res) {
+  var path = new web.Path(req, res, {}),
+    self = this._webServer,
+    fsLoader = self.fsLoader,
+    data = [],
+    reqHost = (req.headers.host || '').split(':'),
+    virtualHost,
+    contentType = req.headers['content-type'],
+    port = self.config.port + '';
+
+  contentType = contentType ? contentType.split(R_SPLIT_HEADER) : [];
+
+  if (!self.hosts.some(function(host) {
+    if (host.checkDomain(reqHost[0]) && port === reqHost[1]) {
+      virtualHost = host;
+      return true;
+    }
+    return false;
+  })) {
+    path.close();
+    return;
+  }
+
+  path.hostname = reqHost[0];
+  path.port = reqHost[1];
+
+  req.on('data', function(chunk) {
+    data.push(chunk);
+  });
+
+  req.on('end', function() {
+    var mime = WebServer.mimeTypes[contentType[0]];
+
+    if (mime && mime.decode) {
+      path.body = mime.decode(data.join(''));
+    } else {
+      path.body = data.join('');
+    }
+
+    virtualHost.emit('path', path);
+  });
+};
 
 var WebServer = module.exports = function WebServer(config) {
-  const self = this,
+  var self = this,
     httpServer = this.httpServer = new http.Server;
 
   httpServer.allowHalfOpen = !(config.allowHalfOpen === false);
@@ -22,63 +68,18 @@ var WebServer = module.exports = function WebServer(config) {
   this._server = httpServer;
 
   Object.keys(DEFAULT_CONFIG).forEach(function(key) {
-    self.config[key] = config[key] || DEFAULT_CONFIG[key];
-  });
+    this.config[key] = config[key] || DEFAULT_CONFIG[key];
+  }, this);
 
   config = this.config;
-
   this.hosts = [];
 
   this.on('error', function(err) {
     console.error('server error ', err);
   });
 
-  httpServer.on('request', function(req, res) {
-    var path = new web.Path(req, res, {}),
-      data = [],
-      reqHost = (req.headers.host || '').split(':'),
-      virtualHost,
-      contentType = req.headers['content-type'];
-
-    contentType = contentType ? contentType.split(/;(\s+)?/) : [];
-
-    if(!self.hosts.some(function(host) {
-
-      if (host.checkDomain(reqHost[0]) && (self.config.port + '') === reqHost[1]) {
-        virtualHost = host;
-        return true;
-      }
-
-      return false;
-
-    })) {
-      path.close(404);
-      return;
-    }
-
-    path.hostname = reqHost[0];
-    path.port = reqHost[1];
-
-
-    req.on('data', function(chunk) {
-      data.push(chunk);
-    });
-
-    req.on('end', function() {
-      var mime;
-
-      if ((mime = WebServer.mimeTypes[contentType[0]]) && mime.decode) {
-        path.body = mime.decode(data.join(''));
-      } else {
-        path.body = data.join('');
-      };
-
-      virtualHost.emit('path', path);
-
-    });
-
-
-  });
+  httpServer._webServer = this;
+  httpServer.on('request', requestHandler);
 
   process.nextTick(function() {
     self.start();
@@ -88,7 +89,7 @@ var WebServer = module.exports = function WebServer(config) {
 
 WebServer.mimeTypes = {
   'application/json': {
-    encode: function(data) {
+    encode: function(text) {
       try {
         return JSON.stringify(text);
       } catch (e) {

@@ -1,13 +1,21 @@
-const EventEmitter = require('events').EventEmitter,
-  pathmod = require('path');
+"use strict";
 
-  DEFAULT_CONFIG = {
-    domain: 'localhost',
-    encoding: 'text/plain'
+var EventEmitter = require('events').EventEmitter,
+  pathmod = require('path'),
+  fs = require('fs'),
+  web = require('../'),
+  isArray = Array.isArray;
+
+var DEFAULT_CONFIG = {
+    encoding: 'utf8',
+    root: null
   };
 
 var VirtualHost = module.exports = function VirtualHost(config, server) {
-  var self = this;
+  var self = this,
+    domain,
+    root,
+    stat;
 
   EventEmitter.call(this);
 
@@ -16,90 +24,92 @@ var VirtualHost = module.exports = function VirtualHost(config, server) {
   this.config = {};
 
   Object.keys(DEFAULT_CONFIG).forEach(function(key) {
-    self.config[key] = config[key] || DEFAULT_CONFIG[key];
-  });
+    this.config[key] = config[key] || DEFAULT_CONFIG[key];
+  }, this);
 
   config = this.config;
+  domain = config.domain || server.config.host;
 
-  if (config.domain.length > 2
-    && config.domain[0] === '/'
-    && config.domain[config.domain.length - 1] === '/') {
-
-    this.checkDomain = new Function('input', 'return ' + config.domain + '.test(input);');
-
+  if (domain.length > 2 &&
+      domain[0] === '/' &&
+      domain[domain.length - 1] === '/') {
+    this.checkDomain =
+      new Function('input', 'return ' + domain + '.test(input);');
   } else {
-
     this.checkDomain = function(input) {
-      return input === config.domain;
+      return input === domain;
     };
+  }
 
+  if (config.root && typeof config.root === 'string') {
+    root = pathmod.resolve(process.cwd(), config.root);
+    stat = fs.statSync(root);
+    if (stat && stat.isDirectory()) {
+      this.fsLoader = new web.FsLoader(root, this);
+    }
   }
 
   this.on('path', function(path) {
-
     var paths = [],
-      cursor = 0,
-      execPath = function() {
-        if (cursor >= paths.length) {
-          path.close();
-          return;
-        }
+      cursor = 0;
 
-        if (!path.closed) {
-          var listeners = self.paths[paths[cursor]];
-
-          if (Array.isArray(listeners) && listeners.length) {
-            listeners.forEach(function(listener) {
-              listener.call(self, path);
-            });
-          }
-
-          cursor++;
-
-          if (!path.blocked) {
-            execPath();
-          } else if (!path.closed) {
-
-            var clean = function() {
-                path.removeListener('allow', allowAgain);
-                path.removeListener('close', clean);
-              },
-              allowAgain = function() {
-                clean();
-                execPath();
-              };
-
-            path.on('allow', allowAgain);
-
-            path.on('close', clean);
-
-          }
-
-        }
-
-      };
-
-    Object.keys(self.paths).forEach(function(pathname) {
-      var pathReg = new RegExp(pathname);
-
-      if (pathReg.test(path.url.pathname)) {
-
-        paths.push(pathname);
-
+    var execPath = function() {
+      if (cursor >= paths.length) {
+        path.close();
+        return;
       }
 
-    });
+      if (path.closed) return;
 
-    paths.sort(function(first, second) {
-      first = first.split('/');
-      second = second.split('/');
+      var listeners = self.paths[paths[cursor]];
 
+      if (isArray(listeners) && listeners.length) {
+        listeners.forEach(function(listener) {
+          listener.call(this, path);
+        }, this);
+      }
 
-      return first < second ? -1 : first > second ? 1 : 0;
-    });
+      cursor++;
 
-    execPath();
+      if (!path.blocked) {
+        execPath();
+      } else if (!path.closed) {
+        var clean = function() {
+            path.removeListener('allow', allowAgain);
+            path.removeListener('close', clean);
+          },
+          allowAgain = function() {
+            clean();
+            execPath();
+          };
 
+        path.on('allow', allowAgain);
+        path.on('close', clean);
+      }
+    };
+
+    if (this.paths) {
+      Object.keys(this.paths).forEach(function(pathname) {
+        var pathReg = new RegExp(pathname);
+        if (pathReg.test(path.name)) {
+          paths.push(pathname);
+        }
+      });
+    }
+
+    if (paths.length) {
+      paths.sort(function(first, second) {
+        first = first.split('/');
+        second = second.split('/');
+        return first < second ? -1 : first > second ? 1 : 0;
+      });
+
+      execPath();
+    } else if (this.fsLoader) {
+      this.fsLoader.handle(path);
+    } else {
+      path.close();
+    }
 
   }.bind(this));
 
@@ -110,16 +120,15 @@ VirtualHost.prototype.__proto__ = EventEmitter.prototype;
 Object.defineProperties(VirtualHost.prototype, {
   path: {
     value: function listenWebPath(pathname, callback) {
-      this.paths || (this.paths = {});
+      var paths = this.paths || (this.paths = {});
 
-      pathname = '^' + pathmod.normalize(pathname).replace(/\*/g, '(.*)') + '$';
-
-      var paths = this.paths[pathname] || (this.paths[pathname] = []);
-
+      pathname = '^' + pathmod.normalize(pathname)
+        .replace(new RegExp('\\' + pathmod.sep, 'g'), '/')
+        .replace(/\*/g, '(.*)') + '$';
+      paths = paths[pathname] || (paths[pathname] = []);
       paths.push(callback);
 
       return this;
-
     }
   }
 });

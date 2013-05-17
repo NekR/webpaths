@@ -1,7 +1,8 @@
-const R_FILE_TO_CLASS = /_(\w)/gi,
-  DIR_PATH = './components',
-  fs = require('fs'),
+var fs = require('fs'),
   paths = require('path');
+
+var R_FILE_TO_CLASS = /_(\w)/gi,
+  DIR_PATH = './components';
 
 var dir = fs.readdirSync(paths.normalize(__dirname + '/' + DIR_PATH));
 

@@ -1,0 +1,32 @@
+{
+  "exts": {
+    "html": {
+      "contentType": "text/html",
+      "charset": "utf-8"
+    },
+    "htm": {
+      "contentType": "text/html",
+      "charset": "utf-8"
+    },
+    "js": {
+      "contentType": "application/javascript",
+      "charset": "utf-8"
+    },
+    "json": "application/json",
+    "css": "text/css",
+    "xml": "text/xml",
+    "xhtml": "application/xhtml+xml",
+    "svg": "application/svg+xml",
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "bmp": "image/bmp"
+  },
+  "charsets": {
+    "image/*": "binary",
+    "text/*": "utf-8",
+    "application/*": "utf-8",
+    "*/*": "utf-8"
+  }
+}
