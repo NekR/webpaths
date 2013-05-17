@@ -1,4 +1,4 @@
-const net = require('net'),
+var net = require('net'),
   EventEmitter = require('events').EventEmitter,
   FreeList = require('freelist').FreeList,
   HTTPParser = process.binding('http_parser').HTTPParser,

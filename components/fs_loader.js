@@ -1,6 +1,7 @@
 var fs = require('fs'),
   pathmod = require('path'),
   doStat = fs.stat,
+  hasOwn = Fuction.call.bind({}.hasOwnProperty),
   mimeTypes = require('../config/mime_types.json'),
   charsetGroups = {},
   charsets = {},
@@ -57,8 +58,6 @@ FsLoader.prototype.handle = function(path) {
   pathname = pathname.replace(/\\+$/g, '');
   pathname = pathmod.normalize(pathmod.join(this.root, pathname));
 
-  console.log(pathname);
-
   doStat(pathname, function(e, stat) {
     if (e || !stat.isFile()) {
       return notFound(path);
@@ -67,35 +66,29 @@ FsLoader.prototype.handle = function(path) {
     var ext = pathmod.extname(pathname).slice(1),
       encoding = DEFAULT_CHARSET;
 
-    if (ext && ext in ext2mime) {
+    if (ext && hasOwn(ext2mime, ext)) {
       ext = path.contentType = ext2mime[ext];
 
-      if (ext in charsets) {
+      if (hasOwn(charsets, ext)) {
         encoding = charsets[ext];
       } else {
         ext = ext.split('/');
-        if (ext[0] in charsetGroups) {
+        if (hasOwn(charsetGroups, ext[0])) {
           encoding = charsetGroups[ext[0]];
         }
       }
     }
 
     path.encoding = encoding;
-
-    //console.log(pathname, path.contentType, path.encoding);
-
     path.statusCode = 200;
-
     path.sendHeaders();
 
-    fs.createReadStream(pathname)
-    .on('data', function(chunk) {
+    fs.createReadStream(pathname).on('data', function(chunk) {
       path.write(chunk);
     }).on('close', function() {
       path.close();
     }).on('error', function() {
       path.close(500);
     });
-
   });
 };
