@@ -1,7 +1,7 @@
 var fs = require('fs'),
   pathmod = require('path'),
   doStat = fs.stat,
-  hasOwn = Fuction.call.bind({}.hasOwnProperty),
+  hasOwn = Function.call.bind({}.hasOwnProperty),
   mimeTypes = require('../config/mime_types.json'),
   charsetGroups = {},
   charsets = {},

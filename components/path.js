@@ -109,7 +109,6 @@ WebPath.prototype = Object.defineProperties({
           typeof length !== 'number' || !length) return;
 
       this._contentLength = length;
-
     },
     get: function() {
       return this._contentLength;
@@ -124,7 +123,6 @@ WebPath.prototype = Object.defineProperties({
           this._firstPackageSent) return;
 
       this._encoding = encoding;
-
     }
   },
   write: {
@@ -141,12 +139,10 @@ WebPath.prototype = Object.defineProperties({
       } else {
         this.response.write(buffer, this.encoding);
       }
-
     }
   },
   sendHeaders: {
     value: function sendHeaders(headers) {
-
       if (this.closed || this._firstPackageSent) return;
 
       var response = this.response,
@@ -185,7 +181,6 @@ WebPath.prototype = Object.defineProperties({
       if (needClose) {
         this.close();
       }
-
     }
   },
   close: {
@@ -231,9 +226,7 @@ WebPath.prototype = Object.defineProperties({
 
 WebPath.prototype.__proto__ = EventEmitter.prototype;
 
-
 function parseCookie(string) {
-
   if (string) {
     string = (string + '').split('; ');
 
@@ -242,13 +235,12 @@ function parseCookie(string) {
         key = key.split('=');
 
         if (key.length) {
-          result[key[0]] = decodeURIComponent(key[1]);
+          result[decodeURIComponent(key[0])] = decodeURIComponent(key[1]);
         }
 
         return result;
       }, {});
     }
-
   }
   return {};
 }

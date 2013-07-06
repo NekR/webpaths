@@ -60,12 +60,9 @@ var WebServer = module.exports = function WebServer(config) {
     httpServer = this.httpServer = new http.Server;
 
   httpServer.allowHalfOpen = !(config.allowHalfOpen === false);
-
   EventEmitter.call(this);
 
   this.config = {};
-  // should be removed and used only internally to providing hacks
-  this._server = httpServer;
 
   Object.keys(DEFAULT_CONFIG).forEach(function(key) {
     this.config[key] = config[key] || DEFAULT_CONFIG[key];
@@ -84,7 +81,6 @@ var WebServer = module.exports = function WebServer(config) {
   process.nextTick(function() {
     self.start();
   });
-
 };
 
 WebServer.mimeTypes = {
@@ -135,7 +131,7 @@ WebServer.prototype = {
 Object.defineProperties(WebServer.prototype, {
   'connections': {
     get: function() {
-      return this._server.connections;
+      return this.httpServer.connections;
     }
   }
 });

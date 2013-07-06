@@ -18,9 +18,7 @@ var VirtualHost = module.exports = function VirtualHost(config, server) {
     stat;
 
   EventEmitter.call(this);
-
   this.server = server;
-
   this.config = {};
 
   Object.keys(DEFAULT_CONFIG).forEach(function(key) {
@@ -30,8 +28,7 @@ var VirtualHost = module.exports = function VirtualHost(config, server) {
   config = this.config;
   domain = config.domain || server.config.host;
 
-  if (domain.length > 2 &&
-      domain[0] === '/' &&
+  if (domain.length > 2 && domain[0] === '/' &&
       domain[domain.length - 1] === '/') {
     this.checkDomain =
       new Function('input', 'return ' + domain + '.test(input);');
@@ -110,9 +107,7 @@ var VirtualHost = module.exports = function VirtualHost(config, server) {
     } else {
       path.close();
     }
-
   }.bind(this));
-
 };
 
 VirtualHost.prototype.__proto__ = EventEmitter.prototype;
