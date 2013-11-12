@@ -21,10 +21,13 @@
     "jpg": "image/jpeg",
     "jpeg": "image/jpeg",
     "gif": "image/gif",
-    "bmp": "image/bmp"
+    "bmp": "image/bmp",
+    "mp3": "audio/mpeg"
   },
   "charsets": {
     "image/*": "binary",
+    "audio/*": "binary",
+    "video/*": "binary",
     "text/*": "utf-8",
     "application/*": "utf-8",
     "*/*": "utf-8"

@@ -1,5 +1,6 @@
 var fs = require('fs'),
   pathmod = require('path'),
+  vm = require('vm'),
   doStat = fs.stat,
   hasOwn = Function.call.bind({}.hasOwnProperty),
   mimeTypes = require('../config/mime_types.json'),
@@ -7,7 +8,8 @@ var fs = require('fs'),
   charsets = {},
   ext2mime = {};
 
-var DEFAULT_CHARSET = '';
+var DEFAULT_CHARSET = '',
+  DIR_PATH_HANDLER = '_path.js';
 
 Object.keys(mimeTypes.charsets).forEach(function(charset) {
   var parts = charset.split('/');
@@ -43,6 +45,45 @@ Object.keys(mimeTypes.exts).forEach(function(ext) {
 var notFound = function(path) {
   path.close(404);
   return 404;
+},
+lookupDirHandlers = function(dirname, root, callback) {
+  var handlers = [],
+    out = [];
+
+  dirname = dirname.replace(root + pathmod.sep, '');
+  dirname = dirname.split(pathmod.sep);
+
+  var read = function() {
+    handlers.reduceRight(function(next, handler) {
+      return function() {
+        fs.readFile(handler, function(e, data) {
+          if (!e) {
+            out.push(data);
+          }
+
+          next();
+        });
+      };
+    }, function() {
+      callback(out);
+    })();
+  };
+
+  dirname.reduceRight(function(next, dir) {
+    return function(prefix) {
+      prefix = prefix + pathmod.sep + dir;
+
+      var handler = prefix + pathmod.sep + DIR_PATH_HANDLER;
+
+      doStat(handler, function(e, stat) {
+        if (!e && stat.isFile()) {
+          handlers.push(handler);
+        }
+
+        next(prefix);
+      });
+    };
+  }, read)(root);
 };
 
 var FsLoader = module.exports = function FsLoader(root, host) {
@@ -52,11 +93,15 @@ var FsLoader = module.exports = function FsLoader(root, host) {
 
 
 FsLoader.prototype.handle = function(path) {
-  var pathname = path.name;
+  var pathname = path.name,
+    dirname,
+    root = this.root;
 
   pathname = pathmod.normalize(pathmod.join('/', pathname));
   pathname = pathname.replace(/\\+$/g, '');
-  pathname = pathmod.normalize(pathmod.join(this.root, pathname));
+  pathname = pathmod.normalize(pathmod.join(root, pathname));
+
+  dirname = pathmod.dirname(pathname);
 
   doStat(pathname, function(e, stat) {
     if (e || !stat.isFile()) {
@@ -83,12 +128,74 @@ FsLoader.prototype.handle = function(path) {
     path.statusCode = 200;
     path.sendHeaders();
 
-    fs.createReadStream(pathname).on('data', function(chunk) {
-      path.write(chunk);
-    }).on('close', function() {
-      path.close();
-    }).on('error', function() {
-      path.close(500);
+    var flush = function() {
+      fs.createReadStream(pathname).on('data', function(chunk) {
+        path.write(chunk);
+      }).on('close', function() {
+        path.close();
+      }).on('error', function() {
+        path.close(500);
+      });
+    };
+
+    lookupDirHandlers(dirname, root, function(handlers) {
+      if (!handlers.length) {
+        flush();
+        return;
+      }
+
+      fs.readFile(pathname, function(e, content) {
+        if (e) {
+          return notFound(path);
+        }
+
+        var getContext = function(obj) {
+          return {
+            get path() {
+              return path;
+            },
+            get content() {
+              return content;
+            },
+            get console() {
+              return console;
+            },
+            get file() {
+              return pathmod.basename(pathname);
+            },
+            get require() {
+              return require;
+            },
+            save: function(data) {
+              content = data;
+            },
+            wait: obj && obj.wait,
+            flush: obj && obj.flush
+          };
+        };
+
+        handlers.reduceRight(function(next, handler) {
+          return function() {
+            var needWait;
+
+            vm.runInNewContext(handler, getContext({
+              wait: function() {
+                needWait = true;
+              },
+              flush: function() {
+                next();
+              }
+            }));
+
+            if (!needWait) {
+              next();
+            }
+          };
+        }, function() {
+          path.write(content);
+          path.close();
+        })();
+      });
     });
   });
 };

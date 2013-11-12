@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
-var wpaths = require('.'),
-  args = process.argv.slice(1),
-  argsMap = {};
+var paths = require('path'),
+  modDir = __dirname + paths.sep + '..';
+
+var wpaths = require(modDir),
+  args = process.argv.slice(1);
 
 var hasOwn = {}.hasOwnProperty,
   short2full = {
@@ -11,6 +13,39 @@ var hasOwn = {}.hasOwnProperty,
     p: 'port',
     r: 'root',
     d: 'domain'
+  },
+  handleArgs = {
+    root: function(arg, next, i) {
+      var root = arg.val,
+        domain;
+
+      if (next && next.key === 'domain') {
+        domain = next.val;
+        i++;
+      }
+
+      config.domains.push({
+        root: root,
+        domain: domain
+      });
+
+      return i;
+    },
+    host: function(arg, next, i) {
+      config.host = arg.val;
+
+      return i;
+    },
+    port: function(arg, next, i) {
+      config.port = arg.val;
+
+      return i;
+    }
+  },
+  config = {
+    domains: [],
+    host: 'localhost',
+    port: 8080
   };
 
 // -c config
@@ -55,3 +90,40 @@ args = (function(args) {
   return result;
 }(args));
 
+(function() {
+  var i = 0,
+    len = args.length,
+    current,
+    next,
+    key,
+    val;
+
+  for (; i < len; i++) {
+    current = next || args[i];
+    next = args[i + 1];
+
+    key = current[0];
+    val = current[1];
+
+    if (hasOwn.call(handleArgs, key)) {
+      i = handleArgs[key]({
+        key: key,
+        val: val
+      }, next ? {
+        key: next[0],
+        val: next[1]
+      } : null, i);
+    }
+  }
+}());
+
+if (config.domains.length) {
+  var server = new wpaths.Server({
+    port: config.port,
+    host: config.host
+  });
+
+  config.domains.forEach(function(domain) {
+    server.addHost(domain);
+  });
+}
