@@ -1,129 +1,167 @@
 #!/usr/bin/env node
 
-var paths = require('path'),
-  modDir = __dirname + paths.sep + '..';
+var paths = require('path');
+var util = require('util');
+var os = require('os');
+var minimist = require('minimist');
+var modDir = __dirname + paths.sep + '..';
+var hasOwn = {}.hasOwnProperty;
+var slice = [].slice;
 
-var wpaths = require(modDir),
-  args = process.argv.slice(1);
+var console = {};
+var doInspect = function(data) {
+  return util.inspect(data, {
+    colors: true,
+    customInspect: false
+  });
+};
 
-var hasOwn = {}.hasOwnProperty,
-  short2full = {
-    c: 'config',
-    h: 'host',
-    p: 'port',
-    r: 'root',
-    d: 'domain'
-  },
-  handleArgs = {
-    root: function(arg, next, i) {
-      var root = arg.val,
-        domain;
+Object.keys(global.console).forEach(function(key) {
+  console[key] = function(data) {
+    var method = global.console[key];
+    var args = arguments;
 
-      if (next && next.key === 'domain') {
-        domain = next.val;
-        i++;
-      }
-
-      config.domains.push({
-        root: root,
-        domain: domain
-      });
-
-      return i;
-    },
-    host: function(arg, next, i) {
-      config.host = arg.val;
-
-      return i;
-    },
-    port: function(arg, next, i) {
-      config.port = arg.val;
-
-      return i;
+    if (!args.length) {
+      method.call(global.console);
+      return;
     }
-  },
-  config = {
-    domains: [],
-    host: 'localhost',
-    port: 8080
+
+    if (args.length === 1) {
+      method.call(global.console, doInspect(args[0]));
+      return;
+    }
+
+    if (args.length === 2) {
+      method.call(global.console, doInspect(args[0]), doInspect(args[1]));
+      return;
+    }
+
+    args = slice.call(arguments).map(function(arg) {
+      return doInspect(arg);
+    });
+
+    method.apply(global.console, args);
   };
+});
 
-// -c config
-// -h host
-// -p port 
-// -r root [next domain, repeat this]
-// -d domain 
 
-args = (function(args) {
-  var arg,
-    argVal,
-    i = 0,
-    len = args.length,
-    result = [];
+var defaultArgs = {
+  domain: null,
+  root: process.cwd(),
+  host: '*',
+  port: 8080
+};
 
-  for (; i < len; i++) {
-    arg = args[i];
+var argsAliases = {
+  c: 'config',
+  h: 'host',
+  p: 'port',
+  r: 'root',
+  d: 'domain'
+};
 
-    if (arg && arg.slice(0, 2) === '--') {
-      arg = arg.slice(2).split('=');
-      result.push(arg);
-      continue;
-    } else if (arg && arg[0] === '-') {
-      arg = arg.slice(1);
-      argVal = args[i + 1];
+var wpaths = require(modDir);
+var slicedArgs = process.argv.slice(process.argv[0] === 'node' ? 2 : 1);
 
-      if (argVal[0] === '-') {
-        argVal = '';
-        continue;
-      } else {
-        i++;
-      }
+var args = minimist(slicedArgs, {
+  default: defaultArgs,
+  alias: argsAliases
+});
 
-      if (hasOwn.call(short2full, arg)) {
-        arg = short2full[arg];
-        result.push([arg, argVal]);
-        continue;
-      }
+var config = {
+  hosts: [],
+  domains: []
+};
+
+var mapPairs = function(pairs) {
+  var arr = [];
+  var keys = Object.keys(pairs);
+  var pairsSize = keys.map(function(key) {
+    var item = pairs[key];
+
+    if (!Array.isArray(item)) {
+      item = pairs[key] = [item];
     }
-  }
 
-  return result;
-}(args));
-
-(function() {
-  var i = 0,
-    len = args.length,
-    current,
-    next,
-    key,
-    val;
-
-  for (; i < len; i++) {
-    current = next || args[i];
-    next = args[i + 1];
-
-    key = current[0];
-    val = current[1];
-
-    if (hasOwn.call(handleArgs, key)) {
-      i = handleArgs[key]({
-        key: key,
-        val: val
-      }, next ? {
-        key: next[0],
-        val: next[1]
-      } : null, i);
-    }
-  }
-}());
-
-if (config.domains.length) {
-  var server = new wpaths.Server({
-    port: config.port,
-    host: config.host
+    return item.length;
   });
 
-  config.domains.forEach(function(domain) {
-    server.addHost(domain);
+  var i = 0;
+  var len = Math.max.apply(null, pairsSize);
+  for (; i < len; i++) {
+    var obj = keys.reduce(function(result, key) {
+      result[key] = pairs[key][i];
+
+      return result;
+    }, {});
+
+    arr.push(obj);
+  }
+
+  return arr;
+};
+
+if (args.host === '*') {
+  var port = [].concat(args.port)[0];
+  var interfaces = os.networkInterfaces();
+
+  Object.keys(interfaces).forEach(function(name) {
+    var intr = interfaces[name].filter(function(obj) {
+      return obj.family === 'IPv4';
+    })[0];
+
+    if (intr) {
+      var host = intr.address;
+
+      config.hosts.push({
+        name: name,
+        host: host,
+        port: port
+      });
+    }
+  });
+} else {
+  config.hosts = mapPairs({
+    port: args.port,
+    host: args.host
   });
 }
+
+config.domains = mapPairs({
+  root: args.root,
+  domain: args.domain
+});
+
+console.log('--SERVERS--');
+config.hosts.forEach(function(serverData) {
+  var server = new wpaths.Server(serverData);
+  var defaultRoot;
+  var gotDefaultDomain;
+
+  console.log(serverData);
+
+  config.domains.concat().forEach(function(domain) {
+    if (!domain.domain) {
+      if (gotDefaultDomain) {
+        throw new Error('Cannot make more than one default domain', serverData, domain);
+      }
+
+      delete domain.domain;
+      gotDefaultDomain = true;
+      defaultRoot = domain.root;
+    }
+
+    server.addHost(domain);
+  });
+
+  if (serverData.host === '127.0.0.1' && defaultRoot) {
+    server.addHost({
+      domain: 'localhost',
+      root: defaultRoot
+    });
+  }
+});
+console.log('--DOMAINS--');
+console.log(config.domains);
+
+

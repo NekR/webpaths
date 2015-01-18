@@ -14,7 +14,7 @@ var WebPath = module.exports = function WebPath(req, res, options) {
   EventEmitter.call(this);
 
   req.on('close', function() {
-    self.close();
+    // self.close();
   });
 
   this.request = req;
@@ -127,18 +127,29 @@ WebPath.prototype = Object.defineProperties({
   },
   write: {
     value: function writePathData(buffer) {
-      if (!buffer) return;
+      if (!buffer) {
+        // console.log('no buffer');
+        return;
+      }
 
       if (this.contentLength) {
+        // console.log('cont length');
         this._bufferLength += buffer.length;
         this.buffer.push(buffer);
       } else if (!this._firstPackageSent) {
+        // console.log('not first package');
         this._bufferLength += buffer.length;
         this.buffer.push(buffer);
         this.sendHeaders(null);
       } else {
+        // console.log('write buffer');
         this.response.write(buffer, this.encoding);
       }
+    }
+  },
+  headers: {
+    get: function() {
+      return this._headers || (this._headers = {});
     }
   },
   sendHeaders: {
@@ -147,6 +158,12 @@ WebPath.prototype = Object.defineProperties({
 
       var response = this.response,
         needClose;
+
+      if (this.headers) {
+        Object.keys(this.headers).forEach(function(key) {
+          response.setHeader(key, this[key]);
+        }, this.headers);
+      }
 
       if (headers) {
         Object.keys(headers).forEach(function(key) {
@@ -165,8 +182,11 @@ WebPath.prototype = Object.defineProperties({
       }
 
       if (this._bufferLength) {
-        this.contentLength = this._bufferLength;
-        needClose = true;
+        // this.contentLength = this._bufferLength;
+
+        if (!this.blocked) {
+          needClose = true;
+        }
       }
 
       if (this.contentLength) {

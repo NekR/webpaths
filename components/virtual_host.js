@@ -8,7 +8,8 @@ var EventEmitter = require('events').EventEmitter,
 
 var DEFAULT_CONFIG = {
     encoding: 'utf8',
-    root: null
+    root: null,
+    domain: null
   };
 
 var VirtualHost = module.exports = function VirtualHost(config, server) {
@@ -72,13 +73,13 @@ var VirtualHost = module.exports = function VirtualHost(config, server) {
         execPath();
       } else if (!path.closed) {
         var clean = function() {
-            path.removeListener('allow', allowAgain);
-            path.removeListener('close', clean);
-          },
-          allowAgain = function() {
-            clean();
-            execPath();
-          };
+          path.removeListener('allow', allowAgain);
+          path.removeListener('close', clean);
+        },
+        allowAgain = function() {
+          clean();
+          execPath();
+        };
 
         path.on('allow', allowAgain);
         path.on('close', clean);

@@ -43,13 +43,16 @@ var requestHandler = function(req, res) {
   });
 
   req.on('end', function() {
-    var mime = WebServer.mimeTypes[contentType[0]];
+    var mime = WebServer.mimeTypes[contentType[0]],
+      dataStr = data.join('');
 
     if (mime && mime.decode) {
-      path.body = mime.decode(data.join(''));
+      path.body = mime.decode(dataStr);
     } else {
-      path.body = data.join('');
+      path.body = dataStr;
     }
+
+    path.bodyStr = dataStr;
 
     virtualHost.emit('path', path);
   });
@@ -124,7 +127,6 @@ WebServer.prototype = {
     }
 
     return host;
-
   }
 };
 

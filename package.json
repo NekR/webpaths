@@ -1,6 +1,6 @@
 {
   "name": "webpaths",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "main": "index.js",
   "description": "An alternative Web server for Node.js",
   "scripts": {
@@ -15,5 +15,8 @@
   },
   "author": "Arthur Stolyar",
   "license": "BSD",
-  "readme": "blah"
+  "readme": "blah",
+  "dependencies": {
+    "minimist": "^1.1.0"
+  }
 }

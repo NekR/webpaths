@@ -50,7 +50,7 @@ lookupDirHandlers = function(dirname, root, callback) {
   var handlers = [],
     out = [];
 
-  dirname = dirname.replace(root + pathmod.sep, '');
+  dirname = dirname.replace(root/* + pathmod.sep*/, '');
   dirname = dirname.split(pathmod.sep);
 
   var read = function() {
@@ -97,6 +97,10 @@ FsLoader.prototype.handle = function(path) {
     dirname,
     root = this.root;
 
+  if (pathname === '/') {
+    pathname = '/index.html';
+  }
+
   pathname = pathmod.normalize(pathmod.join('/', pathname));
   pathname = pathname.replace(/\\+$/g, '');
   pathname = pathmod.normalize(pathmod.join(root, pathname));
@@ -126,9 +130,10 @@ FsLoader.prototype.handle = function(path) {
 
     path.encoding = encoding;
     path.statusCode = 200;
-    path.sendHeaders();
 
     var flush = function() {
+      path.sendHeaders();
+
       fs.createReadStream(pathname).on('data', function(chunk) {
         path.write(chunk);
       }).on('close', function() {
@@ -151,6 +156,9 @@ FsLoader.prototype.handle = function(path) {
 
         var getContext = function(obj) {
           return {
+            get root() {
+              return root;
+            },
             get path() {
               return path;
             },
@@ -159,6 +167,9 @@ FsLoader.prototype.handle = function(path) {
             },
             get console() {
               return console;
+            },
+            get dir() {
+              return dirname;
             },
             get file() {
               return pathmod.basename(pathname);
@@ -192,6 +203,7 @@ FsLoader.prototype.handle = function(path) {
             }
           };
         }, function() {
+          path.sendHeaders();
           path.write(content);
           path.close();
         })();
