@@ -16,7 +16,7 @@
     "css": "text/css",
     "xml": "text/xml",
     "xhtml": "application/xhtml+xml",
-    "svg": "application/svg+xml",
+    "svg": "image/svg+xml",
     "png": "image/png",
     "jpg": "image/jpeg",
     "jpeg": "image/jpeg",
